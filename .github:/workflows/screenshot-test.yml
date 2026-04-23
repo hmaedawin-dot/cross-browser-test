@@ -1,0 +1,58 @@
+name: Cross-browser Screenshot Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:  # 手動実行も可能
+
+jobs:
+  screenshot-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Node.js をセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 依存パッケージをインストール
+        run: npm ci
+
+      - name: Playwright ブラウザをインストール（WebKit含む）
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: スクリーンショット比較テストを実行
+        run: npx ts-node --project tsconfig.json screenshot-test.ts
+
+      - name: スクリーンショットと差分画像をアーティファクトとして保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ github.run_number }}
+          path: screenshots/
+          retention-days: 30
+
+      - name: 差分レポートをサマリーに出力
+        if: always()
+        run: |
+          echo "## スクリーンショット比較レポート" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "対象URL: https://www.hokkaido-heim.com/" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f screenshots/report.json ]; then
+            node -e "
+              const r = require('./screenshots/report.json');
+              r.report.forEach(item => {
+                const icon = parseFloat(item.diffPercent) > 5 ? '⚠️' : '✅';
+                console.log(icon + ' [' + item.viewport + '] ' + item.browser + ': ' + item.diffPercent + '% 差分 (' + item.diffPixels + 'px)');
+              });
+            " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "レポートファイルが見つかりませんでした" >> $GITHUB_STEP_SUMMARY
+          fi
