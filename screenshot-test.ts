@@ -43,9 +43,11 @@ async function takeScreenshot(
   viewport: { width: number; height: number },
   isMobile: boolean
 ): Promise<string> {
+  // FirefoxはisMobileをサポートしないため、mobileはビューポートサイズのみ変更
+  const supportsIsMobile = browserName !== 'firefox';
   const contextOptions: Parameters<Browser['newContext']>[0] = {
     viewport,
-    ...(isMobile && {
+    ...(isMobile && supportsIsMobile && {
       userAgent:
         'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
       hasTouch: true,
