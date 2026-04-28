@@ -91,7 +91,24 @@ function diffScreenshots(
   const height = Math.min(img1.height, img2.height);
   const diff   = new PNG({ width, height });
 
-  const diffPixels  = pixelmatch(img1.data, img2.data, diff.data, width, height, { threshold: 0.1 });
+  const cropData = (img: PNG): Buffer => {
+    const out = Buffer.alloc(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const src = (y * img.width + x) * 4;
+        const dst = (y * width + x) * 4;
+        out[dst]     = img.data[src];
+        out[dst + 1] = img.data[src + 1];
+        out[dst + 2] = img.data[src + 2];
+        out[dst + 3] = img.data[src + 3];
+      }
+    }
+    return out;
+  };
+  const data1 = (img1.width === width && img1.height === height) ? img1.data as unknown as Buffer : cropData(img1);
+  const data2 = (img2.width === width && img2.height === height) ? img2.data as unknown as Buffer : cropData(img2);
+
+  const diffPixels  = pixelmatch(data1, data2, diff.data, width, height, { threshold: 0.1 });
   fs.writeFileSync(diffPath, PNG.sync.write(diff));
 
   const totalPixels = width * height;
